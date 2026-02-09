@@ -14,7 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          assessment_completed: boolean
+          badges: string[]
+          created_at: string
+          elo: number
+          id: string
+          level: number
+          losses: number
+          streak: number
+          total_battles: number
+          updated_at: string
+          user_id: string
+          username: string
+          wins: number
+          xp: number
+        }
+        Insert: {
+          assessment_completed?: boolean
+          badges?: string[]
+          created_at?: string
+          elo?: number
+          id?: string
+          level?: number
+          losses?: number
+          streak?: number
+          total_battles?: number
+          updated_at?: string
+          user_id: string
+          username: string
+          wins?: number
+          xp?: number
+        }
+        Update: {
+          assessment_completed?: boolean
+          badges?: string[]
+          created_at?: string
+          elo?: number
+          id?: string
+          level?: number
+          losses?: number
+          streak?: number
+          total_battles?: number
+          updated_at?: string
+          user_id?: string
+          username?: string
+          wins?: number
+          xp?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

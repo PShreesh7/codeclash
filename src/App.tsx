@@ -19,20 +19,23 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, loading } = useUser();
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!isAuthenticated) return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
 const AssessmentGate = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useUser();
+  const { user, loading } = useUser();
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!user) return <Navigate to="/" replace />;
   if (!user.assessmentCompleted) return <Navigate to="/assessment" replace />;
   return <>{children}</>;
 };
 
 const AuthRedirect = () => {
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, loading } = useUser();
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!isAuthenticated) return <Landing />;
   if (!user?.assessmentCompleted) return <Navigate to="/assessment" replace />;
   return <Navigate to="/dashboard" replace />;

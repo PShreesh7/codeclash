@@ -1,25 +1,33 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 import { motion } from 'framer-motion';
-import { Swords, Zap, Trophy, ArrowRight } from 'lucide-react';
+import { Swords, Zap, Trophy, ArrowRight, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Landing = () => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { login, signup } = useUser();
-  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
+    let error: string | null;
     if (mode === 'login') {
-      login(email, password);
+      error = await login(email, password);
     } else {
-      signup(username, email, password);
+      error = await signup(username, email, password);
     }
-    navigate('/assessment');
+    setSubmitting(false);
+    if (error) {
+      toast({ title: 'Error', description: error, variant: 'destructive' });
+    } else if (mode === 'signup') {
+      toast({ title: 'Check your email', description: 'We sent you a confirmation link. Please verify your email to continue.' });
+    }
   };
 
   return (
@@ -125,15 +133,23 @@ const Landing = () => {
                   className="w-full px-4 py-3 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                   placeholder="••••••••"
                   required
+                  minLength={6}
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-display font-semibold tracking-wider hover:bg-primary/90 transition-all flex items-center justify-center gap-2 mt-6"
+                disabled={submitting}
+                className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-display font-semibold tracking-wider hover:bg-primary/90 transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-50"
               >
-                {mode === 'login' ? 'Enter Arena' : 'Create Account'}
-                <ArrowRight className="w-4 h-4" />
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    {mode === 'login' ? 'Enter Arena' : 'Create Account'}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
 

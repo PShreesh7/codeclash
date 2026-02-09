@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
 export interface UserProfile {
   username: string;
@@ -18,12 +20,13 @@ export interface UserProfile {
 interface UserContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => void;
-  signup: (username: string, email: string, password: string) => void;
-  logout: () => void;
-  completeAssessment: (elo: number) => void;
-  updateElo: (delta: number) => void;
-  addBadge: (badge: string) => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<string | null>;
+  signup: (username: string, email: string, password: string) => Promise<string | null>;
+  logout: () => Promise<void>;
+  completeAssessment: (elo: number) => Promise<void>;
+  updateElo: (delta: number) => Promise<void>;
+  addBadge: (badge: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | null>(null);
@@ -34,93 +37,119 @@ export const useUser = () => {
   return ctx;
 };
 
-const STORAGE_KEY = 'codeclash_user';
+const mapProfile = (row: any, email: string): UserProfile => ({
+  username: row.username,
+  email,
+  elo: row.elo,
+  level: row.level,
+  xp: row.xp,
+  totalBattles: row.total_battles,
+  wins: row.wins,
+  losses: row.losses,
+  streak: row.streak,
+  badges: row.badges ?? [],
+  joinedAt: row.created_at,
+  assessmentCompleted: row.assessment_completed,
+});
+
+const fetchProfile = async (session: Session): Promise<UserProfile | null> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapProfile(data, session.user.email ?? '');
+};
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const persist = (u: UserProfile | null) => {
-    setUser(u);
-    if (u) localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    else localStorage.removeItem(STORAGE_KEY);
-  };
+  useEffect(() => {
+    // Set up auth listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        // Use setTimeout to avoid potential deadlocks with Supabase auth
+        setTimeout(async () => {
+          const profile = await fetchProfile(session);
+          setUser(profile);
+          setLoading(false);
+        }, 0);
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
 
-  const login = useCallback((email: string, _password: string) => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      persist(JSON.parse(saved));
-    } else {
-      persist({
-        username: email.split('@')[0],
-        email,
-        elo: 0,
-        level: 1,
-        xp: 0,
-        totalBattles: 0,
-        wins: 0,
-        losses: 0,
-        streak: 0,
-        badges: [],
-        joinedAt: new Date().toISOString(),
-        assessmentCompleted: false,
-      });
-    }
+    // THEN check existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        const profile = await fetchProfile(session);
+        setUser(profile);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signup = useCallback((username: string, email: string, _password: string) => {
-    persist({
-      username,
+  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return error ? error.message : null;
+  }, []);
+
+  const signup = useCallback(async (username: string, email: string, password: string): Promise<string | null> => {
+    const { error } = await supabase.auth.signUp({
       email,
-      elo: 0,
-      level: 1,
-      xp: 0,
-      totalBattles: 0,
-      wins: 0,
-      losses: 0,
-      streak: 0,
-      badges: [],
-      joinedAt: new Date().toISOString(),
-      assessmentCompleted: false,
+      password,
+      options: {
+        data: { username },
+        emailRedirectTo: window.location.origin,
+      },
     });
+    return error ? error.message : null;
   }, []);
 
-  const logout = useCallback(() => persist(null), []);
-
-  const completeAssessment = useCallback((elo: number) => {
-    setUser(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, elo, assessmentCompleted: true, level: Math.floor(elo / 200) + 1 };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
   }, []);
 
-  const updateElo = useCallback((delta: number) => {
-    setUser(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, elo: Math.max(0, prev.elo + delta) };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+  const completeAssessment = useCallback(async (elo: number) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const level = Math.floor(elo / 200) + 1;
+    await supabase.from('profiles').update({
+      elo,
+      assessment_completed: true,
+      level,
+    }).eq('user_id', session.user.id);
+    setUser(prev => prev ? { ...prev, elo, assessmentCompleted: true, level } : prev);
   }, []);
 
-  const addBadge = useCallback((badge: string) => {
-    setUser(prev => {
-      if (!prev) return prev;
-      if (prev.badges.includes(badge)) return prev;
-      const updated = { ...prev, badges: [...prev.badges, badge] };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+  const updateElo = useCallback(async (delta: number) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !user) return;
+    const newElo = Math.max(0, user.elo + delta);
+    await supabase.from('profiles').update({ elo: newElo }).eq('user_id', session.user.id);
+    setUser(prev => prev ? { ...prev, elo: newElo } : prev);
+  }, [user]);
+
+  const addBadge = useCallback(async (badge: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !user) return;
+    if (user.badges.includes(badge)) return;
+    const newBadges = [...user.badges, badge];
+    await supabase.from('profiles').update({ badges: newBadges }).eq('user_id', session.user.id);
+    setUser(prev => prev ? { ...prev, badges: newBadges } : prev);
+  }, [user]);
 
   return (
     <UserContext.Provider value={{
       user,
       isAuthenticated: !!user,
+      loading,
       login, signup, logout,
       completeAssessment, updateElo, addBadge,
     }}>
