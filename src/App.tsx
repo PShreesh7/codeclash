@@ -2,25 +2,74 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { UserProvider, useUser } from "@/contexts/UserContext";
+import AppLayout from "@/components/AppLayout";
+import Landing from "@/pages/Landing";
+import Assessment from "@/pages/Assessment";
+import Dashboard from "@/pages/Dashboard";
+import Learning from "@/pages/Learning";
+import Battle from "@/pages/Battle";
+import Progress from "@/pages/Progress";
+import MatchHistory from "@/pages/MatchHistory";
+import AICoach from "@/pages/AICoach";
+import WalletPage from "@/pages/WalletPage";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useUser();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
+
+const AssessmentGate = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useUser();
+  if (!user) return <Navigate to="/" replace />;
+  if (!user.assessmentCompleted) return <Navigate to="/assessment" replace />;
+  return <>{children}</>;
+};
+
+const AuthRedirect = () => {
+  const { user, isAuthenticated } = useUser();
+  if (!isAuthenticated) return <Landing />;
+  if (!user?.assessmentCompleted) return <Navigate to="/assessment" replace />;
+  return <Navigate to="/dashboard" replace />;
+};
+
+const AppRoutes = () => (
+  <Routes>
+    <Route path="/" element={<AuthRedirect />} />
+    <Route path="/assessment" element={
+      <ProtectedRoute><Assessment /></ProtectedRoute>
+    } />
+    <Route element={
+      <AssessmentGate><AppLayout /></AssessmentGate>
+    }>
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/learning" element={<Learning />} />
+      <Route path="/battle" element={<Battle />} />
+      <Route path="/progress" element={<Progress />} />
+      <Route path="/history" element={<MatchHistory />} />
+      <Route path="/ai-coach" element={<AICoach />} />
+      <Route path="/wallet" element={<WalletPage />} />
+    </Route>
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <UserProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </UserProvider>
   </QueryClientProvider>
 );
 
