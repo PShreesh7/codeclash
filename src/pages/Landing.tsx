@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { motion } from 'framer-motion';
-import { Swords, Zap, Trophy, ArrowRight, Loader2 } from 'lucide-react';
+import { Swords, Zap, Trophy, ArrowRight, Loader2, Mail, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Landing = () => {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'resend'>('login');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -16,6 +17,33 @@ const Landing = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+
+    if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      setSubmitting(false);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Reset link sent', description: 'Check your email for a password reset link.' });
+        setMode('login');
+      }
+      return;
+    }
+
+    if (mode === 'resend') {
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      setSubmitting(false);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Verification email sent', description: 'Check your inbox for the confirmation link.' });
+        setMode('login');
+      }
+      return;
+    }
+
     let error: string | null;
     if (mode === 'login') {
       error = await login(email, password);
@@ -28,6 +56,20 @@ const Landing = () => {
     } else if (mode === 'signup') {
       toast({ title: 'Check your email', description: 'We sent you a confirmation link. Please verify your email to continue.' });
     }
+  };
+
+  const titles: Record<string, { heading: string; sub: string }> = {
+    login: { heading: 'Welcome Back', sub: 'Enter the battlefield' },
+    signup: { heading: 'Join the Arena', sub: 'Create your warrior profile' },
+    forgot: { heading: 'Reset Password', sub: 'We\'ll send you a reset link' },
+    resend: { heading: 'Resend Verification', sub: 'Get a new confirmation email' },
+  };
+
+  const buttonLabels: Record<string, string> = {
+    login: 'Enter Arena',
+    signup: 'Create Account',
+    forgot: 'Send Reset Link',
+    resend: 'Resend Email',
   };
 
   return (
@@ -93,10 +135,10 @@ const Landing = () => {
             </div>
 
             <h2 className="font-display text-xl font-bold text-foreground mb-2">
-              {mode === 'login' ? 'Welcome Back' : 'Join the Arena'}
+              {titles[mode].heading}
             </h2>
             <p className="text-muted-foreground text-sm mb-8">
-              {mode === 'login' ? 'Enter the battlefield' : 'Create your warrior profile'}
+              {titles[mode].sub}
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -124,18 +166,20 @@ const Landing = () => {
                   required
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                />
-              </div>
+              {(mode === 'login' || mode === 'signup') && (
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -146,20 +190,53 @@ const Landing = () => {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    {mode === 'login' ? 'Enter Arena' : 'Create Account'}
+                    {buttonLabels[mode]}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
 
+            {/* Contextual links */}
+            {mode === 'login' && (
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <button
+                  onClick={() => setMode('forgot')}
+                  className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  Forgot password?
+                </button>
+                <button
+                  onClick={() => setMode('resend')}
+                  className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Resend verification
+                </button>
+              </div>
+            )}
+
+            {(mode === 'forgot' || mode === 'resend') && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setMode('login')}
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  ← Back to login
+                </button>
+              </div>
+            )}
+
             <p className="text-center text-sm text-muted-foreground mt-6">
-              {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
+              {mode === 'login' || mode === 'forgot' || mode === 'resend'
+                ? "Don't have an account?"
+                : 'Already have an account?'}{' '}
               <button
-                onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+                onClick={() => setMode(mode === 'signup' ? 'login' : mode === 'login' ? 'signup' : 'signup')}
                 className="text-primary hover:underline font-medium"
               >
-                {mode === 'login' ? 'Sign up' : 'Log in'}
+                {mode === 'signup' ? 'Log in' : 'Sign up'}
               </button>
             </p>
           </div>
