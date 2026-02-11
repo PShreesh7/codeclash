@@ -13,7 +13,7 @@ import Battle from "@/pages/Battle";
 import Progress from "@/pages/Progress";
 import MatchHistory from "@/pages/MatchHistory";
 import AICoach from "@/pages/AICoach";
-import WalletPage from "@/pages/WalletPage";
+import TokenShop from "@/pages/TokenShop";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,7 +56,7 @@ const AppRoutes = () => (
       <Route path="/progress" element={<Progress />} />
       <Route path="/history" element={<MatchHistory />} />
       <Route path="/ai-coach" element={<AICoach />} />
-      <Route path="/wallet" element={<WalletPage />} />
+      <Route path="/token-shop" element={<TokenShop />} />
     </Route>
     <Route path="*" element={<NotFound />} />
   </Routes>

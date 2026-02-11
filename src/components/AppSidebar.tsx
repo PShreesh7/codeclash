@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 import {
   LayoutDashboard, BookOpen, Swords, TrendingUp,
-  History, Bot, Wallet, LogOut, Trophy
+  History, Bot, Coins, LogOut, Trophy
 } from 'lucide-react';
 
 const navItems = [
@@ -12,7 +12,7 @@ const navItems = [
   { path: '/progress', label: 'Progress', icon: TrendingUp },
   { path: '/history', label: 'History', icon: History },
   { path: '/ai-coach', label: 'AI Coach', icon: Bot },
-  { path: '/wallet', label: 'Wallet', icon: Wallet },
+  { path: '/token-shop', label: 'Token Shop', icon: Coins },
 ];
 
 const AppSidebar = () => {

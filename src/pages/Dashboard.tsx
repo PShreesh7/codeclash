@@ -2,7 +2,7 @@ import { useUser } from '@/contexts/UserContext';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import StatCard from '@/components/StatCard';
-import { Trophy, Swords, BookOpen, TrendingUp, Target, Flame, Bot, Wallet } from 'lucide-react';
+import { Trophy, Swords, BookOpen, TrendingUp, Target, Flame, Bot, Coins } from 'lucide-react';
 
 const modeCards = [
   {
@@ -30,10 +30,10 @@ const modeCards = [
     borderColor: 'border-accent/30',
   },
   {
-    title: 'Web3 Wallet',
-    desc: 'View badges, achievements and prizes',
-    icon: Wallet,
-    path: '/wallet',
+    title: 'Token Shop',
+    desc: 'Spend CC Tokens to unlock courses & expert content',
+    icon: Coins,
+    path: '/token-shop',
     color: 'from-glow-purple/20 to-secondary/10',
     borderColor: 'border-glow-purple/30',
   },
