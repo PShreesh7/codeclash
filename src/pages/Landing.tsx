@@ -3,8 +3,10 @@ import { useUser } from '@/contexts/UserContext';
 import { motion } from 'framer-motion';
 import { Swords, Zap, Trophy, ArrowRight, Loader2, Mail, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
 const Landing = () => {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'resend'>('login');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -24,7 +26,7 @@ const Landing = () => {
       const {
         error
       } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
+        redirectTo: "http://localhost:8080"
       });
       setSubmitting(false);
       if (error) {
@@ -72,18 +74,20 @@ const Landing = () => {
       error = await signup(username, email, password);
     }
     setSubmitting(false);
-    if (error) {
-      toast({
-        title: 'Error',
-        description: error,
-        variant: 'destructive'
-      });
-    } else if (mode === 'signup') {
-      toast({
-        title: 'Check your email',
-        description: 'We sent you a confirmation link. Please verify your email to continue.'
-      });
-    }
+   if (error) {
+  toast({
+    title: 'Error',
+    description: error,
+    variant: 'destructive'
+  });
+} else if (mode === 'login') {
+  navigate("/assessment");
+} else if (mode === 'signup') {
+  toast({
+    title: 'Check your email',
+    description: 'We sent you a confirmation link. Please verify your email to continue.'
+  });
+}
   };
   const titles: Record<string, {
     heading: string;

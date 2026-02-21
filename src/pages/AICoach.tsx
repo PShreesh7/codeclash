@@ -20,18 +20,23 @@ async function streamChat({
   onDelta: (t: string) => void;
   onDone: () => void;
 }) {
+  // Get real user JWT — anon key alone causes 401 on authenticated edge functions
+  const { data: { session } } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
   const resp = await fetch(CHAT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${token}`,
+      'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
     body: JSON.stringify({ messages, mode }),
   });
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(err.error || 'Request failed');
+    throw new Error(err.error || `AI service error (${resp.status})`);
   }
   if (!resp.body) throw new Error('No response body');
 
