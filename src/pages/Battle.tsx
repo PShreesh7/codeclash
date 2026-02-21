@@ -94,39 +94,24 @@ const Battle = () => {
   // Ref to track active invite id for cleanup
   const activeInviteIdRef = useRef<string | null>(null);
 
-  // ── Friend code: load from DB or auto-generate + save if missing ────────────
-  const [myFriendCode, setMyFriendCode] = useState(user?.friendCode ?? '');
+  // ── Friend code: deterministic from userId (instant, no DB call needed) ──────
+  // Uses last 6 chars of userId UUID as suffix → always the same, shows instantly
+  const myFriendCode = userId
+    ? `${(user?.username ?? 'USER').toUpperCase().slice(0, 8)}-${userId.replace(/-/g, '').slice(-6).toUpperCase()}`
+    : '';
 
+  // Best-effort: save friend_code to DB so invite lookups work
   useEffect(() => {
-    if (!userId || !user) return;
-    if (myFriendCode) return; // already have it
+    if (!userId || !myFriendCode) return;
+    supabase
+      .from('profiles')
+      .update({ friend_code: myFriendCode })
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) console.warn('Could not persist friend code:', error.message);
+      });
+  }, [userId, myFriendCode]);
 
-    const generate = async () => {
-      // Try fetching from DB first (may have been created server-side)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('friend_code')
-        .eq('user_id', userId)
-        .single();
-
-      if (profile?.friend_code) {
-        setMyFriendCode(profile.friend_code);
-        return;
-      }
-
-      // Generate a new code and persist it
-      const code = `${user.username.toUpperCase().slice(0, 8)}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ friend_code: code })
-        .eq('user_id', userId);
-
-      if (!error) setMyFriendCode(code);
-      else console.error('Failed to save friend code:', error);
-    };
-
-    generate();
-  }, [userId, user, myFriendCode]);
 
   // ─── Supabase Realtime: incoming invites ────────────────────────────────────
   useEffect(() => {
