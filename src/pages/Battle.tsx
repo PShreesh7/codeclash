@@ -94,7 +94,39 @@ const Battle = () => {
   // Ref to track active invite id for cleanup
   const activeInviteIdRef = useRef<string | null>(null);
 
-  const myFriendCode = user?.friendCode ?? '';
+  // ── Friend code: load from DB or auto-generate + save if missing ────────────
+  const [myFriendCode, setMyFriendCode] = useState(user?.friendCode ?? '');
+
+  useEffect(() => {
+    if (!userId || !user) return;
+    if (myFriendCode) return; // already have it
+
+    const generate = async () => {
+      // Try fetching from DB first (may have been created server-side)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('friend_code')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile?.friend_code) {
+        setMyFriendCode(profile.friend_code);
+        return;
+      }
+
+      // Generate a new code and persist it
+      const code = `${user.username.toUpperCase().slice(0, 8)}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ friend_code: code })
+        .eq('user_id', userId);
+
+      if (!error) setMyFriendCode(code);
+      else console.error('Failed to save friend code:', error);
+    };
+
+    generate();
+  }, [userId, user, myFriendCode]);
 
   // ─── Supabase Realtime: incoming invites ────────────────────────────────────
   useEffect(() => {
@@ -533,9 +565,9 @@ const Battle = () => {
                 onClick={() => handleAnswer(i)}
                 disabled={isSubmitted}
                 className={`p-4 rounded-xl border text-left transition-all text-sm font-medium ${!isSubmitted ? 'border-border bg-card hover:border-primary/50 hover:bg-primary/5' :
-                    isCorrect ? 'border-accent bg-accent/10 text-accent' :
-                      isSelected ? 'border-destructive bg-destructive/10 text-destructive' :
-                        'border-border bg-muted/30 text-muted-foreground'
+                  isCorrect ? 'border-accent bg-accent/10 text-accent' :
+                    isSelected ? 'border-destructive bg-destructive/10 text-destructive' :
+                      'border-border bg-muted/30 text-muted-foreground'
                   }`}>
                 <span className="font-mono text-xs text-muted-foreground mr-2">{String.fromCharCode(65 + i)}.</span>
                 {opt}
@@ -622,8 +654,8 @@ const Battle = () => {
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeTab === tab.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}>
               <Icon className="w-4 h-4" />
               {tab.label}
@@ -719,8 +751,8 @@ const Battle = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="font-display text-xl font-bold text-foreground">Room Created!</h2>
                   <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${createdRoom.diff === 'Easy' ? 'bg-accent/20 text-accent' :
-                      createdRoom.diff === 'Medium' ? 'bg-secondary/20 text-secondary' :
-                        'bg-destructive/20 text-destructive'}`}>
+                    createdRoom.diff === 'Medium' ? 'bg-secondary/20 text-secondary' :
+                      'bg-destructive/20 text-destructive'}`}>
                     {createdRoom.diff.toUpperCase()}
                   </span>
                 </div>
@@ -760,10 +792,10 @@ const Battle = () => {
                     {(['Easy', 'Medium', 'Hard'] as Difficulty[]).map(d => (
                       <button key={d} onClick={() => setRoomDiff(d)}
                         className={`flex-1 py-2.5 rounded-lg border text-sm font-semibold transition-all active:scale-95 ${roomDiff === d
-                            ? d === 'Easy' ? 'border-accent    bg-accent/15    text-accent'
-                              : d === 'Medium' ? 'border-secondary bg-secondary/15 text-secondary'
-                                : 'border-destructive bg-destructive/15 text-destructive'
-                            : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                          ? d === 'Easy' ? 'border-accent    bg-accent/15    text-accent'
+                            : d === 'Medium' ? 'border-secondary bg-secondary/15 text-secondary'
+                              : 'border-destructive bg-destructive/15 text-destructive'
+                          : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
                           }`}>{d}</button>
                     ))}
                   </div>
@@ -810,8 +842,8 @@ const Battle = () => {
                   <button disabled={full}
                     onClick={() => joined ? handleLeaveTournament(t.id, t.name) : handleJoinTournament(t.id, t.name)}
                     className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 ${full ? 'bg-muted text-muted-foreground cursor-not-allowed' :
-                        joined ? 'bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20' :
-                          'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+                      joined ? 'bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20' :
+                        'bg-secondary text-secondary-foreground hover:bg-secondary/90'
                       }`}>
                     {full ? 'Full' : joined ? 'Leave' : 'Join'}
                   </button>
