@@ -15,6 +15,7 @@ export interface UserProfile {
   badges: string[];
   joinedAt: string;
   assessmentCompleted: boolean;
+  friendCode: string;
 }
 
 interface UserContextType {
@@ -50,6 +51,7 @@ const mapProfile = (row: any, email: string): UserProfile => ({
   badges: row.badges ?? [],
   joinedAt: row.created_at,
   assessmentCompleted: row.assessment_completed,
+  friendCode: row.friend_code ?? '',
 });
 
 const fetchProfile = async (session: Session): Promise<UserProfile | null> => {
